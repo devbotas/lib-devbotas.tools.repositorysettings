@@ -2,14 +2,10 @@ using System;
 using System.IO;
 using Nuke.Common;
 using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
-using Nuke.Common.Tools.MSBuild;
 using Nuke.Common.Tools.NuGet;
 using Nuke.Common.Utilities.Collections;
-using static Nuke.Common.IO.FileSystemTasks;
-using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.Common.Tools.NuGet.NuGetTasks;
 using static Nuke.Common.Tools.Git.GitTasks;
@@ -28,7 +24,7 @@ class Build : NukeBuild {
 
     Target Clean => _ => _
         .Executes(() => {
-            EnsureCleanDirectory(OutputDirectory);
+            OutputDirectory.CreateOrCleanDirectory();
         });
 
     Target GetVersionInfo => _ => _
@@ -79,16 +75,6 @@ class Build : NukeBuild {
             ReportSummary(_ => _.AddPair("Packages", OutputDirectory.GlobFiles("*.nupkg").Count.ToString()));
         });
 
-    Target PushTevuxTech => _ => _
-       .DependsOn(Pack)
-       .Executes(() => {
-           var apiKey = Environment.GetEnvironmentVariable("GithubTevuxPackages");
-           DotNetNuGetPush(_ => _
-               .SetSource("https://nuget.pkg.github.com/tevux-tech/index.json")
-               .SetApiKey(apiKey)
-               .CombineWith(OutputDirectory.GlobFiles("*.nupkg").NotEmpty(), (_, v) => _.SetTargetPath(v)));
-
-       });
     Target PushNugetOrg => _ => _
        .DependsOn(Pack)
        .Executes(() => {
@@ -96,12 +82,12 @@ class Build : NukeBuild {
            DotNetNuGetPush(_ => _
                .SetSource("https://api.nuget.org/v3/index.json")
                .SetApiKey(apiKey)
-               .CombineWith(OutputDirectory.GlobFiles("*.nupkg").NotEmpty(), (_, v) => _.SetTargetPath(v)));
+               .CombineWith(OutputDirectory.GlobFiles("*.nupkg"), (_, v) => _.SetTargetPath(v)));
 
        });
 
     Target Commit => _ => _
-       .DependsOn(PushTevuxTech, PushNugetOrg)
+       .DependsOn(PushNugetOrg)
        .Executes(() => {
            Git($"add .", workingDirectory: RootDirectory);
            Git($"commit -m \"Releasing {NextPackageVersion}.\"", workingDirectory: RootDirectory);
