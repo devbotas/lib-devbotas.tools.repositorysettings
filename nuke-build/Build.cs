@@ -75,16 +75,6 @@ class Build : NukeBuild {
             ReportSummary(_ => _.AddPair("Packages", OutputDirectory.GlobFiles("*.nupkg").Count.ToString()));
         });
 
-    Target PushTevuxTech => _ => _
-       .DependsOn(Pack)
-       .Executes(() => {
-           var apiKey = Environment.GetEnvironmentVariable("GithubTevuxPackages");
-           DotNetNuGetPush(_ => _
-               .SetSource("https://nuget.pkg.github.com/tevux-tech/index.json")
-               .SetApiKey(apiKey)
-               .CombineWith(OutputDirectory.GlobFiles("*.nupkg"), (_, v) => _.SetTargetPath(v)));
-
-       });
     Target PushNugetOrg => _ => _
        .DependsOn(Pack)
        .Executes(() => {
@@ -97,7 +87,7 @@ class Build : NukeBuild {
        });
 
     Target Commit => _ => _
-       .DependsOn(PushTevuxTech, PushNugetOrg)
+       .DependsOn(PushNugetOrg)
        .Executes(() => {
            Git($"add .", workingDirectory: RootDirectory);
            Git($"commit -m \"Releasing {NextPackageVersion}.\"", workingDirectory: RootDirectory);
